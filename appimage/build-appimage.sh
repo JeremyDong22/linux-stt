@@ -23,8 +23,10 @@
 set -e
 
 # Configuration
+# Version: 1.1 - Updated Python URL to astral-sh repo
 PYTHON_VERSION="3.11"
-PYTHON_MINOR="3.11.7"
+PYTHON_MINOR="3.11.14"
+PYTHON_BUILD_DATE="20251209"
 PYTORCH_INDEX="https://download.pytorch.org/whl/cpu"
 MODEL_NAME="iic/SenseVoiceSmall"
 APPIMAGE_TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
@@ -93,7 +95,7 @@ check_prerequisites() {
 download_python_standalone() {
     log_info "Downloading Python $PYTHON_MINOR standalone build..."
 
-    local python_url="https://github.com/indygreg/python-build-standalone/releases/download/20231002/cpython-${PYTHON_MINOR}+20231002-x86_64-unknown-linux-gnu-install_only.tar.gz"
+    local python_url="https://github.com/astral-sh/python-build-standalone/releases/download/${PYTHON_BUILD_DATE}/cpython-${PYTHON_MINOR}+${PYTHON_BUILD_DATE}-x86_64-unknown-linux-gnu-install_only.tar.gz"
     local python_archive="$BUILD_DIR/python.tar.gz"
 
     if [ -f "$python_archive" ]; then
