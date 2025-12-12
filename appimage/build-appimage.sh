@@ -227,47 +227,36 @@ EOF
 
 # Download SenseVoice model
 download_model() {
-    log_info "Downloading SenseVoice-Small model..."
+    log_info "Downloading SenseVoice-Small model from ModelScope..."
 
-    local model_dir="$APPDIR/usr/share/linux-stt/models/SenseVoiceSmall"
+    local model_dir="$APPDIR/usr/share/linux-stt/models"
     mkdir -p "$model_dir"
 
-    # Check if huggingface-cli is available
-    if command_exists huggingface-cli; then
-        log_info "Using huggingface-cli to download model..."
-        huggingface-cli download "$MODEL_NAME" --local-dir "$model_dir" || {
-            log_warn "huggingface-cli download failed, trying alternative method..."
-            download_model_alternative "$model_dir"
-        }
-    else
-        log_info "huggingface-cli not found, using alternative download method..."
-        download_model_alternative "$model_dir"
-    fi
+    # Use ModelScope to download (model is on ModelScope, not HuggingFace)
+    download_model_alternative "$model_dir"
 
     log_info "Model downloaded to $model_dir"
 }
 
-# Alternative model download using Python
+# Alternative model download using Python (ModelScope)
 download_model_alternative() {
     local model_dir="$1"
 
-    log_info "Using Python to download model from HuggingFace..."
+    log_info "Using Python to download model from ModelScope..."
 
-    # Install huggingface_hub if not available
-    "$APPDIR/usr/bin/pip3" install --no-cache-dir huggingface_hub || error_exit "Failed to install huggingface_hub"
-
-    # Download using Python
+    # Download using modelscope (already installed with funasr)
     "$APPDIR/usr/bin/python3" <<EOF || error_exit "Failed to download model"
 import sys
-from huggingface_hub import snapshot_download
+import os
 
 try:
-    print("Downloading model from HuggingFace...")
-    snapshot_download(
-        repo_id="$MODEL_NAME",
-        local_dir="$model_dir",
-        local_dir_use_symlinks=False
+    from modelscope.hub.snapshot_download import snapshot_download
+    print("Downloading model from ModelScope...")
+    model_path = snapshot_download(
+        model_id="$MODEL_NAME",
+        cache_dir="$model_dir"
     )
+    print(f"Model downloaded to: {model_path}")
     print("Model download complete!")
 except Exception as e:
     print(f"Error downloading model: {e}", file=sys.stderr)

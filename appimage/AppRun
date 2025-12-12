@@ -24,8 +24,8 @@ export PYTHONHOME="$APPDIR/usr"
 export PYTHONPATH="$APPDIR/usr/lib/python3.11/site-packages:$PYTHONPATH"
 
 # Set model path to bundled SenseVoice model
-# This ensures the application uses the bundled model instead of downloading
-export LINUX_STT_MODEL_PATH="$APPDIR/usr/share/linux-stt/models/SenseVoiceSmall"
+# ModelScope downloads to: models/iic/SenseVoiceSmall
+export LINUX_STT_MODEL_PATH="$APPDIR/usr/share/linux-stt/models/iic/SenseVoiceSmall"
 
 # Handle --install flag for portable USB installation
 if [ "$1" = "--install" ]; then
