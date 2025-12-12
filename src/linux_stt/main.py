@@ -89,7 +89,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="linux-stt",
         description="Push-to-talk speech-to-text for Linux using SenseVoice",
-        epilog="Press Control to record, release to transcribe."
+        epilog="Hold Ctrl+Alt to record, release to transcribe."
     )
 
     # Main operation modes
@@ -245,7 +245,7 @@ def list_audio_devices() -> None:
 def test_hotkey() -> None:
     """Test hotkey detection."""
     print("Testing hotkey detection...")
-    print("Press Control key (left or right) to test.")
+    print("Hold Ctrl+Alt to test. Release to stop.")
     print("Press Ctrl+C to exit.")
     print()
 
@@ -261,12 +261,12 @@ def test_hotkey() -> None:
     def on_press():
         nonlocal press_count
         press_count += 1
-        print(f"✓ Control key PRESSED (count: {press_count})")
+        print(f"✓ Ctrl+Alt PRESSED - Recording... (count: {press_count})")
 
     def on_release():
         nonlocal release_count
         release_count += 1
-        print(f"✓ Control key RELEASED (count: {release_count})")
+        print(f"✓ Ctrl+Alt RELEASED - Stopped (count: {release_count})")
 
     try:
         listener = HotkeyListener()
@@ -588,7 +588,7 @@ def run_daemon(config: Config) -> None:
     # Daemon started successfully
     logger.info("Linux STT started successfully")
     print("Linux STT is running!")
-    print("Press Control to record, release to transcribe.")
+    print("Hold Ctrl+Alt to record, release to transcribe.")
     print("Press Ctrl+C to stop.")
     print()
 

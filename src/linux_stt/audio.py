@@ -16,7 +16,7 @@ Features:
 
 import queue
 import threading
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import sounddevice as sd
@@ -98,8 +98,8 @@ class AudioRecorder:
         self,
         indata: np.ndarray,
         frames: int,
-        time_info: sd.CallbackTime,
-        status: sd.CallbackFlags
+        time_info: Any,
+        status: Any
     ) -> None:
         """
         Callback function for audio stream to buffer incoming audio data.

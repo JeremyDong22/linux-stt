@@ -1,7 +1,7 @@
 #!/bin/bash
 # Linux STT - Installation Script
-# Version: 1.0
-# Description: One-liner installer that sets up Linux Speech-to-Text system
+# Version: 2.0
+# Description: Installs Linux STT AppImage to ~/smartice folder
 # Usage: curl -sSL <url>/install.sh | bash
 #        or: ./install.sh
 
@@ -14,16 +14,21 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# Installation directory
+INSTALL_DIR="$HOME/smartice"
+APPIMAGE_NAME="linux-stt.AppImage"
+DESKTOP_FILE="$HOME/.local/share/applications/linux-stt.desktop"
+
+# GitHub release URL (update this for your repo)
+GITHUB_REPO="JeremyDong22/linux-stt"
+RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/linux-stt-x86_64.AppImage"
 
 # Global variables
 DISTRO=""
 PACKAGE_MANAGER=""
 NEED_LOGOUT=false
 
-# Print colored output
+# Print functions
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -70,7 +75,6 @@ detect_distro() {
                 ;;
             *)
                 print_warning "Unknown distribution: $ID"
-                print_info "Attempting to detect package manager..."
                 if command -v apt &> /dev/null; then
                     DISTRO="debian"
                     PACKAGE_MANAGER="apt"
@@ -81,13 +85,13 @@ detect_distro() {
                     DISTRO="arch"
                     PACKAGE_MANAGER="pacman"
                 else
-                    print_error "Could not detect package manager. Supported: apt, dnf, pacman"
+                    print_error "Could not detect package manager."
                     exit 1
                 fi
                 ;;
         esac
     else
-        print_error "/etc/os-release not found. Cannot detect distribution."
+        print_error "/etc/os-release not found."
         exit 1
     fi
 
@@ -105,167 +109,115 @@ install_dependencies() {
 
             print_info "Installing packages..."
             sudo apt install -y \
-                portaudio19-dev \
-                libnotify-bin \
-                xclip \
-                wl-clipboard \
-                python3-pip \
-                python3-venv
+                libfuse2 \
+                libportaudio2 \
+                wtype \
+                wl-clipboard
             ;;
         fedora)
             print_info "Installing packages..."
             sudo dnf install -y \
-                portaudio-devel \
-                libnotify \
-                xclip \
-                wl-clipboard \
-                python3-pip
+                fuse-libs \
+                portaudio \
+                wtype \
+                wl-clipboard
             ;;
         arch)
             print_info "Installing packages..."
             sudo pacman -S --needed --noconfirm \
+                fuse2 \
                 portaudio \
-                libnotify \
-                xclip \
-                wl-clipboard \
-                python-pip
+                wtype \
+                wl-clipboard
             ;;
     esac
 
     print_success "System dependencies installed"
-
-    # Check for dotool
-    if ! command -v dotool &> /dev/null; then
-        print_warning "dotool not found. This is optional but recommended for keyboard input simulation."
-        print_info "You can install it manually from: https://git.sr.ht/~geb/dotool"
-    else
-        print_success "dotool is already installed"
-    fi
 }
 
-# Setup user permissions and groups
+# Setup user permissions
 setup_permissions() {
     print_info "Setting up user permissions..."
 
     local current_user="$USER"
-    local groups_added=()
 
-    # Create uinput group if it doesn't exist
-    if ! getent group uinput &> /dev/null; then
-        print_info "Creating uinput group..."
-        sudo groupadd -r uinput
-        print_success "Created uinput group"
-    fi
-
-    # Add user to input group
+    # Add user to input group for hotkey detection
     if ! groups "$current_user" | grep -q "\binput\b"; then
         print_info "Adding $current_user to input group..."
         sudo usermod -aG input "$current_user"
-        groups_added+=("input")
         NEED_LOGOUT=true
-    fi
-
-    # Add user to uinput group
-    if ! groups "$current_user" | grep -q "\buinput\b"; then
-        print_info "Adding $current_user to uinput group..."
-        sudo usermod -aG uinput "$current_user"
-        groups_added+=("uinput")
-        NEED_LOGOUT=true
-    fi
-
-    if [ ${#groups_added[@]} -gt 0 ]; then
-        print_success "Added $current_user to groups: ${groups_added[*]}"
+        print_success "Added to input group"
     else
-        print_success "User already in required groups"
-    fi
-
-    # Install udev rules
-    print_info "Installing udev rules..."
-    sudo cp "$SCRIPT_DIR/99-linux-stt.rules" /etc/udev/rules.d/
-    sudo chmod 644 /etc/udev/rules.d/99-linux-stt.rules
-
-    # Reload udev rules
-    print_info "Reloading udev rules..."
-    sudo udevadm control --reload-rules
-    sudo udevadm trigger
-
-    print_success "Permissions configured"
-}
-
-# Install Python package
-install_python_package() {
-    print_info "Installing Linux STT Python package..."
-
-    # Check if we're in a virtual environment
-    if [[ -z "$VIRTUAL_ENV" ]]; then
-        print_info "Installing using pipx (recommended for CLI tools)..."
-
-        # Check if pipx is available
-        if ! command -v pipx &> /dev/null; then
-            print_info "Installing pipx..."
-            case "$DISTRO" in
-                debian)
-                    sudo apt install -y pipx
-                    ;;
-                fedora)
-                    sudo dnf install -y pipx
-                    ;;
-                arch)
-                    sudo pacman -S --needed --noconfirm python-pipx
-                    ;;
-            esac
-            pipx ensurepath
-        fi
-
-        # Install with pipx
-        cd "$PROJECT_ROOT"
-        pipx install -e .
-        print_success "Installed via pipx"
-    else
-        print_info "Virtual environment detected, installing with pip..."
-        cd "$PROJECT_ROOT"
-        pip install -e .
-        print_success "Installed in virtual environment"
+        print_success "Already in input group"
     fi
 }
 
-# Install systemd user service
-install_service() {
-    print_info "Installing systemd user service..."
+# Download and install AppImage
+install_appimage() {
+    print_info "Installing Linux STT..."
 
-    local service_dir="$HOME/.config/systemd/user"
+    # Create install directory
+    mkdir -p "$INSTALL_DIR"
 
-    # Create systemd user directory if it doesn't exist
-    mkdir -p "$service_dir"
+    local appimage_path="$INSTALL_DIR/$APPIMAGE_NAME"
 
-    # Copy service file
-    cp "$SCRIPT_DIR/linux-stt.service" "$service_dir/"
-    chmod 644 "$service_dir/linux-stt.service"
+    # Check if AppImage exists locally (in same directory as script)
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local project_root="$(dirname "$script_dir")"
+    local local_appimage="$project_root/linux-stt-x86_64.AppImage"
 
-    # Reload systemd user daemon
-    systemctl --user daemon-reload
-
-    # Enable service
-    print_info "Enabling linux-stt service..."
-    systemctl --user enable linux-stt.service
-
-    print_success "Systemd service installed and enabled"
-
-    # Ask if user wants to start service now
-    read -p "Do you want to start the service now? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        if [ "$NEED_LOGOUT" = true ]; then
-            print_warning "Service cannot be started yet - you need to logout and login first for group changes to take effect."
+    if [ -f "$local_appimage" ]; then
+        print_info "Found local AppImage, copying..."
+        cp "$local_appimage" "$appimage_path"
+    else
+        print_info "Downloading AppImage from GitHub..."
+        if command -v wget &> /dev/null; then
+            wget -O "$appimage_path" "$RELEASE_URL" || {
+                print_error "Failed to download AppImage"
+                exit 1
+            }
+        elif command -v curl &> /dev/null; then
+            curl -L -o "$appimage_path" "$RELEASE_URL" || {
+                print_error "Failed to download AppImage"
+                exit 1
+            }
         else
-            systemctl --user start linux-stt.service
-            print_success "Service started"
-
-            # Show status
-            sleep 1
-            systemctl --user status linux-stt.service --no-pager
+            print_error "Neither wget nor curl found. Please install one."
+            exit 1
         fi
     fi
+
+    # Make executable
+    chmod +x "$appimage_path"
+
+    print_success "AppImage installed to $appimage_path"
+}
+
+# Create desktop launcher
+create_desktop_launcher() {
+    print_info "Creating desktop launcher..."
+
+    mkdir -p "$(dirname "$DESKTOP_FILE")"
+
+    cat > "$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Name=Linux STT
+Comment=Speech to Text for Linux
+Exec=$INSTALL_DIR/$APPIMAGE_NAME
+Icon=audio-input-microphone
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Utility;
+EOF
+
+    chmod +x "$DESKTOP_FILE"
+
+    # Update desktop database
+    if command -v update-desktop-database &> /dev/null; then
+        update-desktop-database "$(dirname "$DESKTOP_FILE")" 2>/dev/null || true
+    fi
+
+    print_success "Desktop launcher created"
 }
 
 # Print final instructions
@@ -275,26 +227,26 @@ print_final_instructions() {
     echo -e "${GREEN}Installation Complete!${NC}"
     echo "========================================"
     echo
+    echo "Installed to: $INSTALL_DIR/$APPIMAGE_NAME"
+    echo
 
     if [ "$NEED_LOGOUT" = true ]; then
-        echo -e "${YELLOW}IMPORTANT:${NC} You MUST logout and login for group changes to take effect!"
+        echo -e "${YELLOW}IMPORTANT:${NC} You MUST logout and login for permissions to take effect!"
         echo
-        echo "After logging back in, the service will start automatically."
-        echo "You can also start it manually with:"
-        echo "  systemctl --user start linux-stt.service"
-    else
-        echo "The service is configured to start automatically on login."
     fi
 
+    echo "To run Linux STT:"
+    echo "  1. Search for 'Linux STT' in your application menu"
+    echo "  2. Or run: $INSTALL_DIR/$APPIMAGE_NAME"
     echo
-    echo "Useful commands:"
-    echo "  systemctl --user status linux-stt.service   # Check service status"
-    echo "  systemctl --user stop linux-stt.service     # Stop service"
-    echo "  systemctl --user restart linux-stt.service  # Restart service"
-    echo "  journalctl --user -u linux-stt.service -f   # View logs"
+    echo "Usage:"
+    echo "  1. Click 'Start' in the app"
+    echo "  2. Hold Ctrl+Alt and speak"
+    echo "  3. Release to transcribe"
     echo
-    echo "To uninstall, run:"
-    echo "  $SCRIPT_DIR/uninstall.sh"
+    echo "To uninstall:"
+    echo "  rm -rf $INSTALL_DIR/$APPIMAGE_NAME"
+    echo "  rm -f $DESKTOP_FILE"
     echo
 }
 
@@ -309,8 +261,8 @@ main() {
     detect_distro
     install_dependencies
     setup_permissions
-    install_python_package
-    install_service
+    install_appimage
+    create_desktop_launcher
     print_final_instructions
 }
 

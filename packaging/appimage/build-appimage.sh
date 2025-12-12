@@ -192,12 +192,13 @@ install_python_dependencies() {
     "$pip" install --no-cache-dir torch torchaudio --index-url "$PYTORCH_INDEX" || error_exit "Failed to install PyTorch"
 
     # Install other dependencies
+    # Pin numpy<2.0 to avoid OpenBLAS page alignment issues on some Linux systems
     log_info "Installing application dependencies..."
     "$pip" install --no-cache-dir \
+        "numpy>=1.24.0,<2.0" \
         funasr \
         evdev \
         sounddevice \
-        numpy \
         || error_exit "Failed to install dependencies"
 
     log_info "Python dependencies installed"
@@ -224,6 +225,31 @@ EOF
     chmod +x "$APPDIR/usr/bin/linux-stt"
 
     log_info "Application code copied"
+}
+
+# Bundle system libraries (PortAudio, etc.)
+bundle_system_libraries() {
+    log_info "Bundling system libraries..."
+
+    # PortAudio is required by sounddevice
+    local portaudio_lib=$(ldconfig -p | grep libportaudio.so.2 | awk '{print $NF}' | head -1)
+
+    if [ -n "$portaudio_lib" ] && [ -f "$portaudio_lib" ]; then
+        log_info "Bundling PortAudio from $portaudio_lib"
+        cp "$portaudio_lib" "$APPDIR/usr/lib/"
+        # Also copy any symlinks
+        local portaudio_dir=$(dirname "$portaudio_lib")
+        for lib in "$portaudio_dir"/libportaudio.so*; do
+            if [ -f "$lib" ] || [ -L "$lib" ]; then
+                cp -P "$lib" "$APPDIR/usr/lib/" 2>/dev/null || true
+            fi
+        done
+    else
+        log_warn "PortAudio not found on system. Install libportaudio2 before building."
+        log_warn "The AppImage may not work without PortAudio bundled."
+    fi
+
+    log_info "System libraries bundled"
 }
 
 # Download SenseVoice model
@@ -362,6 +388,7 @@ main() {
     setup_appdir_structure
     install_python_dependencies
     copy_application_code
+    bundle_system_libraries
     download_model
     optimize_appdir
     create_appimage
