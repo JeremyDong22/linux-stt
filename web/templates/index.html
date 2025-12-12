@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linux STT - Test Interface</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #666;
+            transition: background 0.3s;
+        }
+
+        .status-dot.ready { background: #00ff88; }
+        .status-dot.loading { background: #ffaa00; animation: pulse 1s infinite; }
+        .status-dot.recording { background: #ff4444; animation: pulse 0.5s infinite; }
+        .status-dot.processing { background: #00d4ff; animation: pulse 0.8s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .record-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .record-btn {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+            color: white;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 10px 30px rgba(231, 76, 60, 0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .record-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .record-btn:active, .record-btn.recording {
+            transform: scale(0.95);
+            background: linear-gradient(145deg, #ff6b6b, #e74c3c);
+            box-shadow: 0 5px 20px rgba(231, 76, 60, 0.6);
+        }
+
+        .record-btn.recording {
+            animation: recording-pulse 1s infinite;
+        }
+
+        @keyframes recording-pulse {
+            0%, 100% { box-shadow: 0 5px 20px rgba(231, 76, 60, 0.6); }
+            50% { box-shadow: 0 5px 40px rgba(231, 76, 60, 0.9); }
+        }
+
+        .record-btn svg {
+            width: 40px;
+            height: 40px;
+        }
+
+        .record-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .instructions {
+            color: #888;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .result-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+        }
+
+        .result-label {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .result-text {
+            min-height: 100px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            font-size: 1.2rem;
+            line-height: 1.6;
+            color: #fff;
+            word-wrap: break-word;
+        }
+
+        .result-text.empty {
+            color: #666;
+            font-style: italic;
+        }
+
+        .result-meta {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .history-section {
+            margin-top: 30px;
+        }
+
+        .history-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 3px solid #00d4ff;
+        }
+
+        .history-time {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .error-message {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #ff6b6b;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 1.1rem;
+        }
+
+        .waveform {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            margin: 20px 0;
+        }
+
+        .waveform-bar {
+            width: 4px;
+            background: #00d4ff;
+            border-radius: 2px;
+            transition: height 0.1s;
+        }
+
+        footer {
+            margin-top: 40px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Linux STT</h1>
+    <p class="subtitle">SenseVoice Speech-to-Text Testing Interface</p>
+
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading SenseVoice model...</p>
+        <p style="color: #666; margin-top: 10px; font-size: 0.9rem;">This may take 30-60 seconds on first run</p>
+    </div>
+
+    <div class="container">
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text">Initializing...</span>
+            </div>
+            <span id="duration-display">0.0s</span>
+        </div>
+
+        <div id="error-container"></div>
+
+        <div class="record-section">
+            <button id="record-btn" class="record-btn" disabled>
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+                <span>HOLD TO RECORD</span>
+            </button>
+            <p class="instructions">Hold the button or press SPACE to record</p>
+
+            <div id="waveform" class="waveform" style="display: none;">
+                <div class="waveform-bar" style="height: 20px;"></div>
+                <div class="waveform-bar" style="height: 30px;"></div>
+                <div class="waveform-bar" style="height: 25px;"></div>
+                <div class="waveform-bar" style="height: 40px;"></div>
+                <div class="waveform-bar" style="height: 35px;"></div>
+                <div class="waveform-bar" style="height: 45px;"></div>
+                <div class="waveform-bar" style="height: 30px;"></div>
+                <div class="waveform-bar" style="height: 20px;"></div>
+            </div>
+        </div>
+
+        <div class="result-section">
+            <div class="result-label">Transcription</div>
+            <div id="result-text" class="result-text empty">
+                Press and hold to record your voice...
+            </div>
+            <div id="result-meta" class="result-meta"></div>
+        </div>
+
+        <div id="history-section" class="history-section" style="display: none;">
+            <div class="result-label">History</div>
+            <div id="history-list"></div>
+        </div>
+    </div>
+
+    <footer>
+        Powered by SenseVoice | Running in Docker
+    </footer>
+
+    <script>
+        // State
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let recordingStartTime = null;
+        let durationInterval = null;
+        let history = [];
+
+        // DOM elements
+        const recordBtn = document.getElementById('record-btn');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const durationDisplay = document.getElementById('duration-display');
+        const resultText = document.getElementById('result-text');
+        const resultMeta = document.getElementById('result-meta');
+        const errorContainer = document.getElementById('error-container');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const waveform = document.getElementById('waveform');
+        const historySection = document.getElementById('history-section');
+        const historyList = document.getElementById('history-list');
+
+        // Initialize
+        async function init() {
+            try {
+                // Check microphone permission
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Load model
+                const response = await fetch('/api/load-model', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    setStatus('ready', 'Ready - Hold to record');
+                    recordBtn.disabled = false;
+                    loadingOverlay.classList.add('hidden');
+                } else {
+                    throw new Error(data.error || 'Failed to load model');
+                }
+            } catch (error) {
+                console.error('Init error:', error);
+                showError(error.message);
+                setStatus('error', 'Error');
+                loadingOverlay.classList.add('hidden');
+            }
+        }
+
+        function setStatus(state, text) {
+            statusDot.className = 'status-dot ' + state;
+            statusText.textContent = text;
+        }
+
+        function showError(message) {
+            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+            setTimeout(() => errorContainer.innerHTML = '', 5000);
+        }
+
+        function updateDuration() {
+            if (recordingStartTime) {
+                const duration = (Date.now() - recordingStartTime) / 1000;
+                durationDisplay.textContent = duration.toFixed(1) + 's';
+            }
+        }
+
+        function animateWaveform() {
+            if (!isRecording) return;
+            const bars = waveform.querySelectorAll('.waveform-bar');
+            bars.forEach(bar => {
+                const height = 15 + Math.random() * 35;
+                bar.style.height = height + 'px';
+            });
+            requestAnimationFrame(() => setTimeout(animateWaveform, 100));
+        }
+
+        async function startRecording() {
+            if (isRecording) return;
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.start(100); // Collect data every 100ms
+                isRecording = true;
+                recordingStartTime = Date.now();
+
+                recordBtn.classList.add('recording');
+                recordBtn.querySelector('span').textContent = 'RECORDING...';
+                setStatus('recording', 'Recording...');
+                waveform.style.display = 'flex';
+                animateWaveform();
+
+                durationInterval = setInterval(updateDuration, 100);
+
+            } catch (error) {
+                console.error('Recording error:', error);
+                showError('Microphone access denied. Please allow microphone access.');
+            }
+        }
+
+        async function stopRecording() {
+            if (!isRecording || !mediaRecorder) return;
+
+            return new Promise((resolve) => {
+                mediaRecorder.onstop = async () => {
+                    isRecording = false;
+                    clearInterval(durationInterval);
+
+                    recordBtn.classList.remove('recording');
+                    recordBtn.querySelector('span').textContent = 'HOLD TO RECORD';
+                    waveform.style.display = 'none';
+                    setStatus('processing', 'Transcribing...');
+
+                    const duration = (Date.now() - recordingStartTime) / 1000;
+
+                    // Stop all tracks
+                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+
+                    // Create audio blob
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+                    // Send to server
+                    try {
+                        const formData = new FormData();
+                        formData.append('audio', audioBlob, 'recording.webm');
+
+                        const response = await fetch('/api/transcribe', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            const text = data.text || '(no speech detected)';
+                            resultText.textContent = text;
+                            resultText.className = 'result-text' + (data.text ? '' : ' empty');
+                            resultMeta.textContent = `Duration: ${duration.toFixed(1)}s`;
+
+                            // Add to history
+                            if (data.text) {
+                                addToHistory(data.text, duration);
+                            }
+
+                            setStatus('ready', 'Ready - Hold to record');
+                        } else {
+                            throw new Error(data.error || 'Transcription failed');
+                        }
+                    } catch (error) {
+                        console.error('Transcription error:', error);
+                        showError('Transcription failed: ' + error.message);
+                        setStatus('ready', 'Ready - Hold to record');
+                    }
+
+                    resolve();
+                };
+
+                mediaRecorder.stop();
+            });
+        }
+
+        function addToHistory(text, duration) {
+            const time = new Date().toLocaleTimeString();
+            history.unshift({ text, duration, time });
+
+            // Keep only last 10 items
+            if (history.length > 10) history.pop();
+
+            // Update history UI
+            historySection.style.display = 'block';
+            historyList.innerHTML = history.map(item => `
+                <div class="history-item">
+                    <div class="history-time">${item.time} (${item.duration.toFixed(1)}s)</div>
+                    <div>${item.text}</div>
+                </div>
+            `).join('');
+        }
+
+        // Event listeners
+        recordBtn.addEventListener('mousedown', startRecording);
+        recordBtn.addEventListener('mouseup', stopRecording);
+        recordBtn.addEventListener('mouseleave', () => {
+            if (isRecording) stopRecording();
+        });
+
+        // Touch support
+        recordBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startRecording();
+        });
+        recordBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopRecording();
+        });
+
+        // Keyboard support (Space bar)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !e.repeat && !recordBtn.disabled) {
+                e.preventDefault();
+                startRecording();
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                stopRecording();
+            }
+        });
+
+        // Initialize on page load
+        init();
+    </script>
+</body>
+</html>

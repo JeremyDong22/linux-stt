@@ -1,0 +1,26 @@
+[Desktop Entry]
+# Linux STT Desktop Entry
+# Version: 1.0.0
+# Created: 2025-12-12
+#
+# This file defines how Linux STT appears in desktop environments
+# following the FreeDesktop.org Desktop Entry Specification.
+#
+# Features:
+# - Application metadata (name, description, icon, categories)
+# - Executable configuration (what to run, terminal settings)
+# - Desktop integration (menu placement, startup behavior)
+
+Type=Application
+Name=Linux STT
+GenericName=Speech-to-Text
+Comment=Push-to-talk speech-to-text using SenseVoice
+Exec=linux-stt
+Icon=linux-stt
+Categories=AudioVideo;Audio;Utility;
+Keywords=speech;transcription;voice;dictation;accessibility;
+Terminal=false
+StartupNotify=false
+StartupWMClass=linux-stt
+MimeType=
+X-GNOME-Autostart-enabled=false

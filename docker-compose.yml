@@ -1,0 +1,35 @@
+# Linux STT - Docker Compose Configuration
+# Version: 1.0
+# Description: Easy local testing of SenseVoice STT with web interface
+#
+# Usage:
+#   docker compose up --build
+#   Then open http://localhost:8080 in your browser
+
+services:
+  linux-stt:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PRELOAD_MODEL=1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Cache the model between container restarts
+      - model-cache:/root/.cache/modelscope
+      # Mount source for development (avoids rebuild)
+      - ./src/linux_stt:/app/linux_stt
+      - ./web:/app/web
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  model-cache:
+    name: linux-stt-model-cache

@@ -1,0 +1,36 @@
+# Linux STT - systemd user service
+# Version: 1.0
+# Description: Auto-start Linux Speech-to-Text daemon on user login
+# Install to: ~/.config/systemd/user/linux-stt.service
+#
+# Enable with:
+#   systemctl --user enable linux-stt.service
+#   systemctl --user start linux-stt.service
+#
+# View logs with:
+#   journalctl --user -u linux-stt.service -f
+
+[Unit]
+Description=Linux Speech-to-Text (SenseVoice)
+Documentation=https://github.com/user/linux-stt
+After=graphical-session.target sound.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/home/%u/.local/bin/linux-stt --daemon
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+# Environment variables for audio and display access
+Environment="XDG_RUNTIME_DIR=/run/user/%U"
+Environment="PULSE_RUNTIME_PATH=/run/user/%U/pulse"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=linux-stt
+
+[Install]
+WantedBy=default.target

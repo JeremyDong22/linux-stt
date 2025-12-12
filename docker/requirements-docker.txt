@@ -1,0 +1,18 @@
+# Linux STT - Docker Dependencies
+# Version: 1.0
+
+# Core ML dependencies (torch installed separately for CPU-only)
+funasr>=1.0.0
+modelscope
+numpy>=1.24.0
+
+# Audio processing
+soundfile>=0.12.0
+librosa>=0.10.0
+
+# Web interface
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Utilities
+python-multipart>=0.0.6

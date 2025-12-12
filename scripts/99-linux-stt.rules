@@ -1,0 +1,16 @@
+# Linux STT - udev rules for input device access
+# Version: 1.0
+# Description: Grant uinput group access to /dev/uinput for keyboard input simulation
+# Install to: /etc/udev/rules.d/99-linux-stt.rules
+#
+# After installation, reload udev rules with:
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+#
+# Users must be members of the 'uinput' group to access /dev/uinput
+
+# Allow uinput group to access /dev/uinput device
+KERNEL=="uinput", MODE="0660", GROUP="uinput", TAG+="uaccess"
+
+# Allow input group to read input devices (keyboards, mice, etc.)
+KERNEL=="event*", SUBSYSTEM=="input", MODE="0640", GROUP="input"

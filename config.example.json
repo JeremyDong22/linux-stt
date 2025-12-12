@@ -1,0 +1,21 @@
+{
+  "audio": {
+    "sample_rate": 16000,
+    "device": null
+  },
+  "transcription": {
+    "model_path": null,
+    "device": "auto"
+  },
+  "output": {
+    "method": "auto"
+  },
+  "feedback": {
+    "sound": true,
+    "notifications": true
+  },
+  "daemon": {
+    "level": "INFO",
+    "file": null
+  }
+}
