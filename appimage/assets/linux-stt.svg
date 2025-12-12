@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Linux STT Icon - Microphone with sound waves -->
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="#4A90D9"/>
+
+  <!-- Microphone body -->
+  <rect x="96" y="48" width="64" height="96" rx="32" fill="#FFFFFF"/>
+
+  <!-- Microphone stand -->
+  <path d="M128 144 L128 176" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
+  <path d="M96 176 L160 176" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Microphone holder arc -->
+  <path d="M72 112 Q72 168 128 168 Q184 168 184 112"
+        fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Sound waves -->
+  <path d="M192 88 Q208 128 192 168" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" opacity="0.7"/>
+  <path d="M208 72 Q232 128 208 184" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Ctrl indicator -->
+  <rect x="40" y="192" width="56" height="28" rx="6" fill="#FFFFFF" opacity="0.9"/>
+  <text x="68" y="212" font-family="sans-serif" font-size="16" font-weight="bold" fill="#4A90D9" text-anchor="middle">Ctrl</text>
+</svg>

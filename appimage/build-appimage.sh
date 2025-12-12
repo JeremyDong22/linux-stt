@@ -128,10 +128,24 @@ setup_appdir_structure() {
     cp "$SCRIPT_DIR/linux-stt.desktop" "$APPDIR/linux-stt.desktop"
     cp "$SCRIPT_DIR/linux-stt.desktop" "$APPDIR/usr/share/applications/linux-stt.desktop"
 
-    # Create placeholder icon (256x256 PNG)
-    # In a real build, you'd copy an actual icon file
-    # For now, create a simple placeholder
-    create_placeholder_icon "$APPDIR/linux-stt.png"
+    # Copy icon from assets
+    if [ -f "$SCRIPT_DIR/assets/linux-stt.svg" ]; then
+        # Convert SVG to PNG if possible, otherwise use SVG
+        if command_exists rsvg-convert; then
+            rsvg-convert -w 256 -h 256 "$SCRIPT_DIR/assets/linux-stt.svg" -o "$APPDIR/linux-stt.png"
+        elif command_exists convert; then
+            convert -background none -resize 256x256 "$SCRIPT_DIR/assets/linux-stt.svg" "$APPDIR/linux-stt.png"
+        else
+            log_warn "No SVG converter found, using placeholder icon"
+            create_placeholder_icon "$APPDIR/linux-stt.png"
+        fi
+        # Also copy SVG for scalable icons
+        mkdir -p "$APPDIR/usr/share/icons/hicolor/scalable/apps"
+        cp "$SCRIPT_DIR/assets/linux-stt.svg" "$APPDIR/usr/share/icons/hicolor/scalable/apps/linux-stt.svg"
+    else
+        log_warn "Icon not found in assets, creating placeholder"
+        create_placeholder_icon "$APPDIR/linux-stt.png"
+    fi
     cp "$APPDIR/linux-stt.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/linux-stt.png"
 
     # Create .DirIcon symlink
