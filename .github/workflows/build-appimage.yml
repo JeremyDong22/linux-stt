@@ -1,0 +1,41 @@
+# GitHub Actions workflow to build AppImage
+# Version: 1.0
+# Triggers on push to main or manual dispatch
+# Builds x86_64 AppImage on Ubuntu runner and uploads as artifact
+
+name: Build AppImage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'appimage/**'
+      - '.github/workflows/build-appimage.yml'
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget tar file fuse libfuse2 librsvg2-bin
+
+      - name: Build AppImage
+        run: |
+          chmod +x appimage/build-appimage.sh
+          cd appimage
+          ./build-appimage.sh
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux-STT-AppImage
+          path: build/*.AppImage
+          retention-days: 30
