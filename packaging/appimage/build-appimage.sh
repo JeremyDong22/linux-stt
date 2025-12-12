@@ -32,8 +32,9 @@ MODEL_NAME="iic/SenseVoiceSmall"
 APPIMAGE_TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
 
 # Directories
+# Version: 1.1 - Updated path for packaging/appimage location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 BUILD_DIR="$PROJECT_ROOT/build"
 APPDIR="$BUILD_DIR/AppDir"
 

@@ -10,7 +10,7 @@ on:
     branches: [main]
     paths:
       - 'src/**'
-      - 'appimage/**'
+      - 'packaging/appimage/**'
       - '.github/workflows/build-appimage.yml'
   workflow_dispatch:  # Manual trigger
 
@@ -29,8 +29,8 @@ jobs:
 
       - name: Build AppImage
         run: |
-          chmod +x appimage/build-appimage.sh
-          cd appimage
+          chmod +x packaging/appimage/build-appimage.sh
+          cd packaging/appimage
           ./build-appimage.sh
 
       - name: List artifacts
