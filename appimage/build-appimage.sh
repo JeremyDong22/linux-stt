@@ -297,17 +297,19 @@ optimize_appdir() {
 
 # Download appimagetool
 download_appimagetool() {
-    log_info "Downloading appimagetool..."
+    # Output logs to stderr so they don't get captured by command substitution
+    echo -e "${GREEN}[INFO]${NC} Downloading appimagetool..." >&2
 
     local appimagetool_path="$BUILD_DIR/appimagetool-x86_64.AppImage"
 
     if [ -f "$appimagetool_path" ]; then
-        log_info "appimagetool already exists, skipping download"
+        echo -e "${GREEN}[INFO]${NC} appimagetool already exists, skipping download" >&2
     else
         wget -O "$appimagetool_path" "$APPIMAGE_TOOL_URL" || error_exit "Failed to download appimagetool"
         chmod +x "$appimagetool_path"
     fi
 
+    # Only output the path to stdout (for capture)
     echo "$appimagetool_path"
 }
 
