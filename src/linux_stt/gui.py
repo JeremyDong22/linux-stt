@@ -7,6 +7,7 @@ from tkinter import ttk, messagebox
 import threading
 import subprocess
 import os
+import sys
 import random
 import logging
 
@@ -233,7 +234,58 @@ class LinuxSTTApp:
         if needs_setup:
             self._show_setup_dialog(needs_setup)
         else:
+            # Check if autostart is configured
+            self._check_autostart()
             self.instruction_var.set("Click Start to begin")
+
+    def _check_autostart(self):
+        """Check if autostart is configured, offer to enable it."""
+        autostart_dir = os.path.expanduser("~/.config/autostart")
+        autostart_file = os.path.join(autostart_dir, "linux-stt.desktop")
+
+        if os.path.exists(autostart_file):
+            # Already configured - auto-start the service
+            self.root.after(500, self._start)
+            return
+
+        result = messagebox.askyesno(
+            "Auto-Start",
+            "Would you like Linux STT to start automatically when you log in?\n\n"
+            "(The app will load and be ready to use immediately)",
+            parent=self.root
+        )
+
+        if result:
+            self._setup_autostart()
+            # Also start now
+            self.root.after(500, self._start)
+
+    def _setup_autostart(self):
+        """Create autostart desktop entry."""
+        try:
+            autostart_dir = os.path.expanduser("~/.config/autostart")
+            os.makedirs(autostart_dir, exist_ok=True)
+
+            # Find the AppImage path
+            appimage_path = os.path.expanduser("~/smartice/linux-stt.AppImage")
+            if not os.path.exists(appimage_path):
+                # Fallback: use current executable
+                appimage_path = os.path.abspath(sys.argv[0]) if sys.argv[0].endswith('.AppImage') else appimage_path
+
+            autostart_file = os.path.join(autostart_dir, "linux-stt.desktop")
+            with open(autostart_file, 'w') as f:
+                f.write(f"""[Desktop Entry]
+Type=Application
+Name=Linux STT
+Exec={appimage_path}
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Comment=Speech to Text - Hold Ctrl+Alt to record
+""")
+            logger.info(f"Autostart configured: {autostart_file}")
+        except Exception as e:
+            logger.error(f"Failed to setup autostart: {e}")
 
     def _show_setup_dialog(self, needs_setup):
         result = messagebox.askyesno(
