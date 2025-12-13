@@ -7,7 +7,7 @@
 #
 # Features:
 # - Downloads and bundles portable Python interpreter
-# - Installs all Python dependencies (PyTorch CPU, FunASR, etc.)
+# - Installs all Python dependencies (PyTorch CUDA 12.4, FunASR, etc.)
 # - Downloads and bundles SenseVoice-Small model (~400MB)
 # - Creates AppDir structure with proper FreeDesktop layout
 # - Optimizes for size (strips debug symbols, removes cache files)
@@ -18,7 +18,8 @@
 # - ~2GB disk space during build
 # - wget, tar, find, strip (standard Linux tools)
 #
-# Final AppImage size: ~1.2GB (includes PyTorch CPU + SenseVoice model)
+# Final AppImage size: ~3-4GB (includes PyTorch CUDA 12.4 + SenseVoice model)
+# Note: Auto-detects GPU at runtime, falls back to CPU if no CUDA driver
 
 set -e
 
@@ -27,7 +28,9 @@ set -e
 PYTHON_VERSION="3.11"
 PYTHON_MINOR="3.11.14"
 PYTHON_BUILD_DATE="20251209"
-PYTORCH_INDEX="https://download.pytorch.org/whl/cpu"
+# Use CUDA 12.4 PyTorch for GPU acceleration (RTX 3060 compatible)
+# Falls back to CPU if CUDA not available at runtime
+PYTORCH_INDEX="https://download.pytorch.org/whl/cu124"
 MODEL_NAME="iic/SenseVoiceSmall"
 APPIMAGE_TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
 
@@ -187,8 +190,8 @@ install_python_dependencies() {
     log_info "Upgrading pip..."
     "$pip" install --upgrade pip || error_exit "Failed to upgrade pip"
 
-    # Install PyTorch CPU version (much smaller than CUDA version)
-    log_info "Installing PyTorch (CPU version, this may take a while)..."
+    # Install PyTorch CUDA version for GPU acceleration
+    log_info "Installing PyTorch (CUDA 12.4 version, this may take a while)..."
     "$pip" install --no-cache-dir torch torchaudio --index-url "$PYTORCH_INDEX" || error_exit "Failed to install PyTorch"
 
     # Install other dependencies

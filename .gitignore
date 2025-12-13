@@ -44,7 +44,9 @@ models/
 
 # AppImage build
 *.AppImage
+*.AppImage.backup
 AppDir/
+squashfs-root/
 
 # Logs
 *.log

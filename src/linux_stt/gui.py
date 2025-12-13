@@ -33,6 +33,12 @@ class RecordingIndicator:
         self.window = tk.Toplevel(self.root)
         self.window.overrideredirect(True)
         self.window.attributes('-topmost', True)
+        # Prevent appearing in taskbar/dock
+        self.window.attributes('-type', 'notification')
+        try:
+            self.window.wm_attributes('-type', 'splash')
+        except:
+            pass
 
         # Size and position (bottom center)
         width, height = 160, 80
@@ -147,6 +153,12 @@ class TranscriptPopup:
         self.window = tk.Toplevel(self.root)
         self.window.overrideredirect(True)
         self.window.attributes('-topmost', True)
+        # Prevent appearing in taskbar/dock
+        self.window.attributes('-type', 'notification')
+        try:
+            self.window.wm_attributes('-type', 'splash')
+        except:
+            pass
 
         # Position at bottom center
         width, height = 400, 100
@@ -231,6 +243,16 @@ class LinuxSTTApp:
         except:
             pass
 
+        # Check if ydotool is installed
+        try:
+            subprocess.run(["which", "ydotool"], capture_output=True, check=True)
+        except:
+            needs_setup.append("ydotool")
+
+        # Check if udev rules are set up (check if uinput is accessible)
+        if not os.path.exists("/etc/udev/rules.d/99-ydotool.rules"):
+            needs_setup.append("udev_rules")
+
         if needs_setup:
             self._show_setup_dialog(needs_setup)
         else:
@@ -288,14 +310,22 @@ Comment=Speech to Text - Hold Ctrl+Alt to record
             logger.error(f"Failed to setup autostart: {e}")
 
     def _show_setup_dialog(self, needs_setup):
-        result = messagebox.askyesno(
-            "Setup Required",
-            "Welcome to Linux STT!\n\n"
-            "This app needs permission to detect hotkeys.\n\n"
-            "Click Yes to grant permission.\n"
-            "You'll be logged out, then log back in.",
-            parent=self.root
-        )
+        # Build message based on what's needed
+        setup_items = []
+        if "ydotool" in needs_setup:
+            setup_items.append("• Install ydotool (for auto-paste)")
+        if "udev_rules" in needs_setup:
+            setup_items.append("• Set up permissions for ydotool")
+        if "input_group" in needs_setup:
+            setup_items.append("• Add you to input group (for hotkeys)")
+
+        needs_logout = "input_group" in needs_setup or "udev_rules" in needs_setup
+
+        msg = "Welcome to Linux STT!\n\nSetup needed:\n" + "\n".join(setup_items)
+        if needs_logout:
+            msg += "\n\nYou'll be logged out after setup."
+
+        result = messagebox.askyesno("Setup Required", msg, parent=self.root)
 
         if result:
             self._do_setup(needs_setup)
@@ -306,36 +336,71 @@ Comment=Speech to Text - Hold Ctrl+Alt to record
     def _do_setup(self, needs_setup):
         try:
             user = os.environ.get("USER", "")
+            needs_logout = False
 
             self.status_var.set("Setting up...")
             self.root.update()
 
-            subprocess.run(
-                ["pkexec", "usermod", "-a", "-G", "input", user],
-                check=True
-            )
-
-            self.status_var.set("Logging out in 3...")
-            self.root.update()
-
-            import time
-            for i in [2, 1]:
-                time.sleep(1)
-                self.status_var.set(f"Logging out in {i}...")
+            # Install ydotool if needed
+            if "ydotool" in needs_setup:
+                self.status_var.set("Installing ydotool...")
                 self.root.update()
-            time.sleep(1)
+                subprocess.run(
+                    ["pkexec", "apt", "install", "-y", "ydotool", "xclip"],
+                    check=True
+                )
 
-            for cmd in [["gnome-session-quit", "--logout", "--no-prompt"],
-                        ["loginctl", "terminate-user", user]]:
-                try:
-                    subprocess.run(cmd, timeout=5)
-                    break
-                except:
-                    continue
+            # Set up udev rules if needed
+            if "udev_rules" in needs_setup:
+                self.status_var.set("Setting up permissions...")
+                self.root.update()
+                # Create udev rule for uinput access
+                udev_rule = 'KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput", GROUP="input", MODE="0660"'
+                subprocess.run(
+                    ["pkexec", "bash", "-c", f'echo \'{udev_rule}\' > /etc/udev/rules.d/99-ydotool.rules && udevadm control --reload-rules && udevadm trigger'],
+                    check=True
+                )
+                needs_logout = True
 
-        except subprocess.CalledProcessError:
+            # Add to input group if needed
+            if "input_group" in needs_setup:
+                self.status_var.set("Adding to input group...")
+                self.root.update()
+                subprocess.run(
+                    ["pkexec", "usermod", "-a", "-G", "input", user],
+                    check=True
+                )
+                needs_logout = True
+
+            # Logout if needed
+            if needs_logout:
+                self.status_var.set("Logging out in 3...")
+                self.root.update()
+
+                import time
+                for i in [2, 1]:
+                    time.sleep(1)
+                    self.status_var.set(f"Logging out in {i}...")
+                    self.root.update()
+                time.sleep(1)
+
+                for cmd in [["gnome-session-quit", "--logout", "--no-prompt"],
+                            ["loginctl", "terminate-user", user]]:
+                    try:
+                        subprocess.run(cmd, timeout=5)
+                        break
+                    except:
+                        continue
+            else:
+                # No logout needed, check autostart
+                self._check_autostart()
+                self.instruction_var.set("Click Start to begin")
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Setup failed: {e}")
             messagebox.showerror("Error",
                 "Setup failed.\n\nTry manually:\n"
+                "sudo apt install ydotool xclip\n"
                 "sudo usermod -a -G input $USER\n\n"
                 "Then log out and back in.", parent=self.root)
 
@@ -458,37 +523,96 @@ Comment=Speech to Text - Hold Ctrl+Alt to record
         thread = threading.Thread(target=self._process, daemon=True)
         thread.start()
 
-    def _type_with_wtype(self, text):
-        """Try to type text using wtype (Wayland-native)."""
+    def _copy_to_clipboard(self, text):
+        """Copy text to system clipboard using Tkinter (fastest and most reliable)."""
+        logger.debug(f"Copying to clipboard: '{text[:50]}...' ({len(text)} chars)")
         try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+            self.root.update()
+            logger.debug("Clipboard copy succeeded")
+            return True
+        except Exception as e:
+            logger.error(f"Clipboard copy failed: {e}")
+            return False
+
+    def _paste_with_ydotool(self):
+        """Simulate Ctrl+V paste using ydotool."""
+        logger.debug("Attempting to paste with ydotool...")
+        try:
+            # Use Ctrl+Shift+V with minimal key delay
             result = subprocess.run(
-                ["wtype", text],
+                ["ydotool", "key", "--key-delay=1", "ctrl+shift+v"],
                 capture_output=True,
-                timeout=5
+                timeout=2
             )
+
+            logger.debug(f"ydotool return code: {result.returncode}")
+            if result.stdout:
+                logger.debug(f"ydotool stdout: {result.stdout.decode()}")
+            if result.stderr:
+                logger.debug(f"ydotool stderr: {result.stderr.decode()}")
+
+            if result.returncode == 0:
+                logger.debug("ydotool paste succeeded")
+                return True
+
+            logger.warning(f"ydotool failed (code {result.returncode}), trying with pkexec...")
+            # If failed, try with pkexec (will prompt for password)
+            result = subprocess.run(
+                ["pkexec", "ydotool", "key", "ctrl+shift+v"],
+                capture_output=True,
+                timeout=10
+            )
+            logger.debug(f"pkexec ydotool return code: {result.returncode}")
+            if result.stderr:
+                logger.debug(f"pkexec ydotool stderr: {result.stderr.decode()}")
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+
+        except subprocess.TimeoutExpired:
+            logger.error("ydotool timed out")
+            return False
+        except FileNotFoundError:
+            logger.error("ydotool not found")
+            return False
+        except Exception as e:
+            logger.error(f"ydotool error: {e}")
             return False
 
     def _process(self):
         try:
             audio = self.audio_recorder.stop_recording()
+            logger.debug(f"Audio captured: {len(audio)} samples")
 
             if len(audio) < 1600:
+                logger.debug("Audio too short, skipping")
                 return
 
             text = self.transcriber.transcribe(audio, sample_rate=16000)
+            logger.debug(f"Transcription result: '{text}'")
 
             if text and text.strip():
-                # Try wtype first (Wayland-native, no daemon needed)
-                if self._type_with_wtype(text):
-                    self.root.after(0, lambda: self.popup.show(text, typed=True))
+                logger.debug("Starting clipboard + paste workflow...")
+                # Copy to clipboard first
+                if self._copy_to_clipboard(text):
+                    # Try to auto-paste with ydotool
+                    if self._paste_with_ydotool():
+                        logger.debug("Paste succeeded")
+                        # Use notify-send instead of popup (no sidebar flicker)
+                        try:
+                            subprocess.Popen(
+                                ["notify-send", "-t", "1500", "Linux STT", f"✓ {text[:50]}..."],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL
+                            )
+                        except:
+                            pass
+                    else:
+                        logger.debug("Paste failed, text is in clipboard")
                 else:
-                    # Fallback: copy to clipboard
-                    self.root.clipboard_clear()
-                    self.root.clipboard_append(text)
-                    self.root.update()
-                    self.root.after(0, lambda: self.popup.show(text, typed=False))
+                    logger.error("Failed to copy to clipboard")
+            else:
+                logger.debug("Empty transcription, skipping")
 
         except Exception as e:
             logger.error(f"Processing error: {e}")
@@ -504,7 +628,7 @@ Comment=Speech to Text - Hold Ctrl+Alt to record
 
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     app = LinuxSTTApp()
     app.run()
 
